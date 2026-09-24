@@ -16,8 +16,9 @@ POC2 — POC3 does not touch it.
 
 ## Current increment (POC3)
 Two things, both plumbing, neither touching the reasoning:
-1. Accept PDF and DOCX input, not just plain .txt — extract text, then
-   feed the existing pipeline unchanged.
+1. Accept PDF and DOCX input, not just plain .txt — load paper text, then
+   feed the existing pipeline unchanged. ("Load" = file to text; "extract"
+   is reserved for the model pulling out the claim. See CONTEXT.md.)
 2. Add GitHub Actions CI running lint + the test suite on every push.
 
 ## Explicit non-goals for this increment
@@ -29,9 +30,12 @@ Two things, both plumbing, neither touching the reasoning:
   reasoning or prompts.
 
 ## Known constraint CI must respect
-Docs/Test/*.txt are gitignored NDA fixtures, not present in CI. The test
-suite already skips cleanly (not crashes) when they're missing (see
-test_rvos_poc.py's second skipif). CI will therefore show tests
-SKIPPED, not PASSED — that's expected, not a bug. CI verifies the code
-imports and lints cleanly; it does not verify reasoning correctness
-without the real fixtures and a real API key as a repo secret.
+Docs/Test/* is gitignored (NDA fixtures in any format), not present in CI.
+test_rvos_poc.py already skips cleanly (not crashes) when they're missing
+(see its second skipif). CI will therefore show those four reasoning tests
+SKIPPED, not PASSED — that's expected, not a bug. test_loading.py uses
+synthetic files generated in tmp_path, so its tests PASS in CI. CI
+verifies the code imports, lints cleanly, and loads PDF/DOCX/txt
+correctly; it does not verify reasoning correctness. No ANTHROPIC_API_KEY
+secret is set: the reasoning tests would skip without the NDA fixtures
+anyway, and a public repo has no use for an idle credential.

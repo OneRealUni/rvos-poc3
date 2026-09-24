@@ -8,7 +8,7 @@ retries, and error handling live entirely in the plain functions below.
 Deliberately no UI, no database, no batch/multi-paper processing.
 
 Usage:
-    python rvos_poc.py path/to/paper.txt
+    python rvos_poc.py path/to/paper.(txt|pdf|docx)
 
 Requires ANTHROPIC_API_KEY in the environment (see .env.example).
 """
@@ -19,8 +19,10 @@ import sys
 import time
 from typing import TypedDict
 
+import pdfplumber
 import requests
 from anthropic import Anthropic
+from docx import Document
 from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 
@@ -187,13 +189,52 @@ def build_graph():
     return graph.compile()
 
 
-def run(paper_path: str):
+class PaperLoadError(ValueError):
+    """The paper file couldn't be turned into usable paper text."""
+
+
+def _load_txt(path: str) -> str:
     try:
-        with open(paper_path, "r", encoding="utf-8") as f:
-            paper_text = f.read()
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
     except UnicodeDecodeError:
-        with open(paper_path, "r", encoding="cp1252") as f:
-            paper_text = f.read()
+        with open(path, "r", encoding="cp1252") as f:
+            return f.read()
+
+
+def _load_pdf(path: str) -> str:
+    with pdfplumber.open(path) as pdf:
+        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+
+def _load_docx(path: str) -> str:
+    return "\n".join(p.text for p in Document(path).paragraphs)
+
+
+_LOADERS = {".txt": _load_txt, ".pdf": _load_pdf, ".docx": _load_docx}
+
+
+def load_paper_text(paper_path: str) -> str:
+    """Load a .txt, .pdf or .docx paper into plain paper text (no model involved).
+
+    Raises PaperLoadError for an unsupported extension, or when the file has
+    no extractable text (e.g. a scanned PDF -- OCR is not supported)."""
+    ext = os.path.splitext(paper_path)[1].lower()
+    loader = _LOADERS.get(ext)
+    if loader is None:
+        raise PaperLoadError(
+            f"Unsupported file type {ext!r} for {paper_path}: expected .txt, .pdf or .docx"
+        )
+    text = loader(paper_path)
+    if not text.strip():
+        raise PaperLoadError(
+            f"{paper_path} has no extractable text (scanned PDFs need OCR, which is not supported)"
+        )
+    return text
+
+
+def run(paper_path: str):
+    paper_text = load_paper_text(paper_path)
 
     result = build_graph().invoke({"paper_text": paper_text})
     extracted = result["extracted"]
@@ -226,6 +267,10 @@ def run(paper_path: str):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python rvos_poc.py path/to/paper.txt")
+        print("Usage: python rvos_poc.py path/to/paper.(txt|pdf|docx)")
         sys.exit(1)
-    run(sys.argv[1])
+    try:
+        run(sys.argv[1])
+    except PaperLoadError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)

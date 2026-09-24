@@ -10,3 +10,4 @@ python-docx>=1.1.0
 # dev/test tooling
 pytest>=8.0.0
 ruff>=0.6.0
+reportlab>=4.0.0   # generates synthetic PDFs for test_loading.py

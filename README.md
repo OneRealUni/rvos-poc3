@@ -7,8 +7,9 @@ pipeline itself is unchanged.
 ## What's new in POC3
 - Input can now be a .pdf, .docx, or .txt file (previously .txt only)
 - GitHub Actions runs lint + tests on every push (see
-  .github/workflows/tests.yml) -- tests SKIP in CI, they don't PASS,
-  since the NDA fixtures aren't present there. See CLAUDE.md.
+  .github/workflows/tests.yml). The loading tests (test_loading.py) PASS
+  in CI; the four reasoning tests SKIP, since the NDA fixtures and API
+  key aren't there. See CLAUDE.md.
 
 ## Setup (about 5 minutes)
 
@@ -29,10 +30,31 @@ python rvos_poc.py "Docs/Test/some_paper.pdf"     # new
 python rvos_poc.py "Docs/Test/some_paper.docx"    # new
 ```
 
+The report is written next to the input file as `<name>_report.md`.
+
+Loading is plain text extraction, no cleanup: PDFs give each page's text
+(two-column layouts may interleave), DOCX gives body paragraphs only
+(tables, headers and footers are skipped). Only the first 12,000
+characters reach the model, as before. The run stops with an error
+(exit status 1) for any other file type, and for a file with no
+extractable text -- e.g. a scanned, image-only PDF, since OCR is not
+supported.
+
+## Tests
+
+```bash
+ruff check .
+pytest -v
+```
+
+`test_loading.py` needs no API key or NDA files (it generates tiny
+PDF/DOCX files on the fly). `test_rvos_poc.py` calls the live Anthropic
+and OpenAlex APIs and needs `Docs/Test/Bocken.txt` and
+`Docs/Test/Radha Tucci ISPIM25.txt` locally; it skips if they or the API
+key are missing. `Docs/Test/*` is gitignored -- never commit NDA papers.
+
 ## Everything else
 
 Setup, known limitations, corrections history, and troubleshooting are
-otherwise unchanged from POC2 -- see the full README history in git log
-if needed. This file will be filled in properly once PDF/DOCX support
-is actually implemented; right now it's the POC3 starting point, not a
-finished document.
+otherwise unchanged from POC2. Terminology (load vs. extract, paper text,
+verdict) is defined in CONTEXT.md.
