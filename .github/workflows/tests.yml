@@ -1,0 +1,30 @@
+name: RVOS tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Run tests
+        # NDA fixtures (Docs/Test/*.txt) are gitignored and not present
+        # here, so these will SKIP, not PASS. That's expected -- see
+        # CLAUDE.md. This step still catches import errors, syntax
+        # errors, and dependency drift.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: pytest -v
