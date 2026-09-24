@@ -89,8 +89,6 @@ service-account*.json
 docs/component-content/
 
 # Test files: NDA content, not for public repo (and their generated
-# reports, which summarize/quote the same NDA material)
-Docs/Test/Bocken.txt
-Docs/Test/Radha Tucci ISPIM25.txt
-Docs/Test/Tucci.txt
-Docs/Test/*_report.md
+# reports, which summarize/quote the same NDA material). Blanket rule so
+# a paper in any format (.txt, .pdf, .docx) dropped here is never committed.
+Docs/Test/*
