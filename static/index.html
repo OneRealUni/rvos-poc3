@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RVOS novelty check</title>
+<style>
+  :root {
+    --bg: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --card: #ffffff;
+    --line: #dcdcd5; --accent: #1f5fbf; --accent-fg: #ffffff; --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161616; --fg: #ececea; --muted: #a0a09a; --card: #202020;
+      --line: #3a3a37; --accent: #6ea0f0; --accent-fg: #101010; --err: #f2867e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 6px; }
+  .lede, .notice { color: var(--muted); }
+  .notice { font-size: 0.875rem; margin: 8px 0 16px; }
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  input[type=file] { display: block; margin-bottom: 12px; max-width: 100%; }
+  button { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 8px;
+           padding: 10px 18px; font: inherit; cursor: pointer; }
+  button:disabled { opacity: 0.55; cursor: progress; }
+  #status { margin-top: 12px; color: var(--muted); }
+  #error { margin-top: 12px; color: var(--err); }
+  #report { margin-top: 8px; }
+  .verdict { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line);
+             border-radius: 10px; padding: 14px 16px; }
+  ol.related { padding-left: 0; list-style: none; margin: 0; }
+  ol.related li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  ol.related li.no-abstract { color: var(--muted); }
+  ol.related .n { display: inline-block; min-width: 2.2em; color: var(--muted); }
+  a { color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>RVOS novelty check</h1>
+  <p class="lede">Upload a paper (.pdf, .docx or .txt) to see its claim and how novel it looks against related work.</p>
+
+  <form id="form">
+    <input type="file" id="file" name="file" accept=".pdf,.docx,.txt" required>
+    <button type="submit" id="go">Assess novelty</button>
+    <p class="notice">The first 12,000 characters are sent to Anthropic's API and search keywords to OpenAlex. Nothing is saved by this app.</p>
+    <div id="status" role="status" hidden></div>
+    <div id="error" role="alert" hidden></div>
+  </form>
+
+  <section id="report" hidden>
+    <h2>Claim</h2><p id="claim"></p>
+    <h2>Method</h2><p id="method"></p>
+    <h2>Stated result</h2><p id="result"></p>
+    <h2>Related work</h2><ol class="related" id="related"></ol>
+    <h2>Novelty verdict</h2><div class="verdict" id="verdict"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function show(el, text) {
+  el.textContent = text || "";
+  el.hidden = !text;
+}
+
+function renderReport(r) {
+  $("claim").textContent = r.claim;
+  $("method").textContent = r.method;
+  $("result").textContent = r.result;
+  $("verdict").textContent = r.verdict;
+
+  const list = $("related");
+  list.replaceChildren();
+  for (const w of r.related) {
+    const li = document.createElement("li");
+    if (!w.has_abstract) li.className = "no-abstract";
+
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = "[" + w.n + "]";
+    li.append(n);
+
+    const label = (w.title || "(untitled)") + " (" + w.year + ")";
+    if (typeof w.url === "string" && w.url.startsWith("https://")) {
+      const a = document.createElement("a");
+      a.href = w.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = label;
+      li.append(a);
+    } else {
+      li.append(label);
+    }
+    if (!w.has_abstract) li.append(" — no abstract, not assessed");
+    list.append(li);
+  }
+  $("report").hidden = false;
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const file = $("file").files[0];
+  if (!file) return;
+
+  const go = $("go");
+  go.disabled = true;
+  show($("error"), "");
+  $("report").hidden = true;
+  show($("status"), "Working… this takes about a minute.");
+
+  try {
+    const body = new FormData();
+    body.append("file", file);
+    const resp = await fetch("/analyse", { method: "POST", body });
+    let data = null;
+    try { data = await resp.json(); } catch (_) { /* non-JSON error body */ }
+    if (!resp.ok) {
+      show($("error"), (data && typeof data.detail === "string" && data.detail)
+        || "Something went wrong. Please try again.");
+      return;
+    }
+    renderReport(data);
+  } catch (_) {
+    show($("error"), "Could not reach the server. Is it still running?");
+  } finally {
+    show($("status"), "");
+    go.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

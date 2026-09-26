@@ -40,6 +40,21 @@ characters reach the model, as before. The run stops with an error
 extractable text -- e.g. a scanned, image-only PDF, since OCR is not
 supported.
 
+## Run the UI
+
+```bash
+uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+Then open http://127.0.0.1:8000, choose a .pdf, .docx or .txt paper and
+press "Assess novelty". A run takes about a minute. The page shows the
+same Report as the command line (claim, method, stated result, related
+work, verdict), but nothing is saved: the upload goes to a temp file that
+is deleted straight away, and the report is not written anywhere. Related
+works with no abstract are greyed out because the verdict never saw them.
+Uploads over 10 MB are rejected. This is a demo: it has no login and
+should only be bound to localhost.
+
 ## Tests
 
 ```bash
@@ -47,8 +62,9 @@ ruff check .
 pytest -v
 ```
 
-`test_loading.py` needs no API key or NDA files (it generates tiny
-PDF/DOCX files on the fly). `test_rvos_poc.py` calls the live Anthropic
+`test_loading.py` and `test_app.py` need no API key or NDA files
+(`test_loading.py` generates tiny PDF/DOCX files on the fly; `test_app.py`
+replaces the pipeline with a fake). `test_rvos_poc.py` calls the live Anthropic
 and OpenAlex APIs and needs `Docs/Test/Bocken.txt` and
 `Docs/Test/Radha Tucci ISPIM25.txt` locally; it skips if they or the API
 key are missing. `Docs/Test/*` is gitignored -- never commit NDA papers.
