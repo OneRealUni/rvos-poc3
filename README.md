@@ -5,7 +5,7 @@ CLAUDE.md). This increment adds PDF/DOCX input and CI. The reasoning
 pipeline itself is unchanged.
 
 ## What's new in POC3
-- Input can now be a .pdf, .docx, or .txt file (previously .txt only)
+- Input formats: .txt (unchanged from POC1/2) plus new support for .pdf and .docx
 - GitHub Actions runs lint + tests on every push (see
   .github/workflows/tests.yml). The loading tests (test_loading.py) PASS
   in CI; the four reasoning tests SKIP, since the NDA fixtures and API
