@@ -18,8 +18,8 @@ POC3 is **done and pushed**. Both increments in CLAUDE.md are complete:
   Output is saved in `pytest_output.txt` (committed).
 - The reasoning core (`extract_claim`, `search_openalex`, `judge_novelty`,
   their prompts, the LangGraph wiring) is **unchanged** from POC2.
-- Working tree was clean after the push. `handover.md` itself is new and
-  **not committed**.
+- Working tree was clean after the push. This file and
+  `handoff-rvos-poc3-maintenance.md` were committed afterwards (2026-09-26).
 
 ## Commits (fresh history, no POC2 history carried over)
 
@@ -118,8 +118,8 @@ DOCX, and the CLI error path (exit 1, no traceback).
   `actions/setup-python@v5` target Node 20 (currently forced to Node 24), and
   that `ubuntu-latest` moves to Ubuntu 26 on 2026-10-19 (pin `ubuntu-24.04` to avoid a surprise).
 - `CLAUDE.md` still describes POC3 as the "current increment". Update it when the next increment is chosen.
-- `handover.md` is untracked. Commit it only if wanted; it contains local
-  paths and session details, and the repo is public.
+- This file is committed to the public repo (the user's choice, 2026-09-26). It was
+  scanned first: no local paths, keys or email addresses.
 - The user half-remembers an on-screen "10 pound offer if I do /something" and will
   report the exact wording if seen. I never said it (checked the transcript).
   Treat it as unverified until it is confirmed against an official source.

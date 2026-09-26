@@ -17,10 +17,9 @@ Written for a fresh agent. Focus of the next session: **resume POC3 maintenance*
 
 ## Where things stand
 - Repo: `origin` of the current directory, https://github.com/OneRealUni/rvos-poc3
-  (public, branch `main`). HEAD `f1f8f0a`, pushed and in sync.
-- Working tree: clean except untracked `handover.md`. The user has **not decided**
-  whether to commit it (it holds local paths and session details). Leave it alone
-  unless told.
+  (public, branch `main`). Check `git log --oneline -5` for HEAD; everything is pushed
+  and the working tree is clean.
+- `HANDOVER.md` and this handoff file are committed (the user chose to publish them).
 - CI (GitHub Actions `RVOS tests`) is green: `ruff check .` clean, 11 passed and
   4 skipped. The 4 skips are the live reasoning tests; expected without NDA
   fixtures or an API key, not a bug.
@@ -32,13 +31,13 @@ Written for a fresh agent. Focus of the next session: **resume POC3 maintenance*
 |---|---|
 | Rules for working in this repo | `CLAUDE.md` |
 | Glossary (load vs extract, paper text, verdict, ...) | `CONTEXT.md` |
-| Full session history, decisions and reasons, gotchas, open items, run commands | `handover.md` (untracked, local) |
-| What POC3 changed and why | `git log --stat` (4 commits: `1970910`, `43df0f1`, `6271232`, `f1f8f0a`) |
+| Full session history, decisions and reasons, gotchas, open items, run commands | `HANDOVER.md` (committed) |
+| What POC3 changed and why | `git log --stat` (code commits `1970910`, `43df0f1`, `6271232`, `f1f8f0a`, then docs commits) |
 | Latest local test evidence | `pytest_output.txt` |
 | CI workflow | `.github/workflows/tests.yml` |
 | Sibling project's handoff, for format | https://github.com/OneRealUni/rvos-poc2/blob/main/handoff-rvos-poc2-maintenance.md |
 
-Do not restate `handover.md`; follow it.
+Do not restate `HANDOVER.md`; follow it.
 
 ## How this user wants to work
 - Short, direct answers; a small diagram beats long prose when it fits the question.
@@ -72,7 +71,6 @@ Do not restate `handover.md`; follow it.
 - The "insufficient evidence" verdict path is still untested (deferred in `CLAUDE.md`).
 
 ## Open decisions for the user
-- Commit `handover.md` or keep it local (POC2 kept its equivalent local).
 - Update `CLAUDE.md`'s "Current increment" section, which still describes POC3 as
   in progress. Only when the user picks the next increment.
 
@@ -89,5 +87,5 @@ Not invocable by the agent (user must type them): `mattpocock-skills:grill-with-
 
 ## First moves
 1. `git status --short`, `git log --oneline -5`, `gh auth status`.
-2. Read `CLAUDE.md`, `CONTEXT.md`, then `handover.md`.
+2. Read `CLAUDE.md`, `CONTEXT.md`, then `HANDOVER.md`.
 3. Ask the user which maintenance task they want. Do not assume one.
