@@ -33,5 +33,5 @@ The written novelty judgment of a claim against related work: novel, overlapping
 _Avoid_: Score, rating, result (the paper's own stated result is a different thing)
 
 **Report**:
-The written output for one paper: its claim, method, stated result, related work list, and verdict.
+The written output for one paper: its claim, method, stated result, related work list, and verdict. Shown on screen by the web page, or written to a file by the command line.
 _Avoid_: Output, summary

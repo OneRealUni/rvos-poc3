@@ -92,3 +92,7 @@ docs/component-content/
 # reports, which summarize/quote the same NDA material). Blanket rule so
 # a paper in any format (.txt, .pdf, .docx) dropped here is never committed.
 Docs/Test/*
+
+# Local patch files (e.g. patches/*.patch): scratch copies of changes
+# already applied, not part of the public repo.
+patches/

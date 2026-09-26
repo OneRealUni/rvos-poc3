@@ -7,27 +7,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Minimum code that solves the problem — nothing speculative, no unrequested flexibility.
 - Touch only what the task requires; match existing style; don't "improve" unrelated code.
 - Turn every task into a verifiable goal (write a test, then make it pass) rather than "make it work."
+- patches/ is gitignored: local patch files are scratch copies of changes already applied. There is no "commit review-evidence patches" routine in this repo -- CI now provides that evidence.
 
 ## Current state
-This repo is copied from the validated POC2 (extract_claim -> LangGraph ->
-judge_novelty, both test directions pass). See README.md and
-test_rvos_poc.py for how it works. The reasoning core is unchanged from
-POC2 — POC3 does not touch it.
+POC1: extract_claim -> LangGraph -> judge_novelty, both test directions
+pass. POC3: PDF/DOCX/TXT input via load_paper_text(), GitHub Actions CI
+(loading tests pass, reasoning tests skip by design -- see below). Both
+are done and unchanged by this increment. See README.md, CONTEXT.md,
+test_loading.py, and test_rvos_poc.py.
 
-## Current increment (POC3)
-Two things, both plumbing, neither touching the reasoning:
-1. Accept PDF and DOCX input, not just plain .txt — load paper text, then
-   feed the existing pipeline unchanged. ("Load" = file to text; "extract"
-   is reserved for the model pulling out the claim. See CONTEXT.md.)
-2. Add GitHub Actions CI running lint + the test suite on every push.
+## Completed increments
+- POC1/POC2: the two-agent reasoning pipeline, orchestrated with
+  LangGraph. Validated on both known directions (overlap, novel).
+- POC3: PDF/DOCX/TXT input (load_paper_text, three format loaders) and
+  GitHub Actions CI. 11 loading tests pass in CI; 4 reasoning tests skip
+  there by design (NDA fixtures are gitignored, never reach GitHub).
+
+## Current increment (UI)
+A lightweight, single-page demo web app -- a PhD-researcher persona
+testing the tool for the first time, not a production interface.
+1. Frontend: plain HTML/CSS/vanilla JS. No Next.js, no React, no
+   frontend build tooling of any kind.
+2. Backend: FastAPI, one lightweight file.
+3. The new file(s) import from rvos_poc.py; rvos_poc.py itself is not
+   modified. Call build_graph().invoke(...) directly, not run() -- run()
+   writes <name>_report.md next to the input file and returns nothing,
+   but the web response needs the result back directly.
+4. Upload a .pdf, .docx, or .txt file; display the same claim / method /
+   result / related work / verdict a CLI run would produce.
+5. No MCP anywhere in this increment.
 
 ## Explicit non-goals for this increment
-- No UI / test website — a separate, later, dedicated increment.
-- No fix for the untested "insufficient evidence" verdict path — logged,
-  deliberately deferred, decide later.
+- No production concerns: no auth, no multi-user handling, no
+  deployment pipeline, no scalability work. This is a demo, not a
+  release.
+- No fix for the untested "insufficient evidence" verdict path --
+  logged, deliberately deferred, decide later.
 - No new agents, no batch/multi-paper processing.
-- No change to extract_claim, search_openalex, or judge_novelty's
-  reasoning or prompts.
+- No change to extract_claim, search_openalex, judge_novelty, or
+  load_paper_text's existing behaviour.
 
 ## Known constraint CI must respect
 Docs/Test/* is gitignored (NDA fixtures in any format), not present in CI.
