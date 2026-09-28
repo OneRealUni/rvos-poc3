@@ -101,6 +101,23 @@ def test_empty_file_is_400_no_extractable_text(client):
     assert "no extractable text" in r.json()["detail"]
 
 
+def test_loader_crash_is_400_not_500(client, monkeypatch):
+    """A library failure inside load_paper_text (e.g. a corrupted or
+    password-protected PDF -- see probes P5/P6 in the findings register,
+    F2) must read as a bad file, not a server crash."""
+
+    def boom(path):
+        raise RuntimeError("pdfminer internals: no /Root object")
+
+    monkeypatch.setattr(app_module, "load_paper_text", boom)
+    r = _upload(client, "paper.pdf", b"whatever bytes")
+    assert r.status_code == 400
+    detail = r.json()["detail"].lower()
+    assert "corrupted" in detail or "password" in detail
+    assert "pdfminer" not in r.text
+    assert "/root" not in r.text.lower()
+
+
 def test_oversized_upload_is_413(client, monkeypatch):
     monkeypatch.setattr(app_module, "MAX_UPLOAD_BYTES", 10)
     r = _upload(client, "paper.txt", b"x" * 11)

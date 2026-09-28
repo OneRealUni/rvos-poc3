@@ -55,6 +55,18 @@ def analyse(file: UploadFile):
             paper_text = load_paper_text(tmp_path)
         except PaperLoadError as e:
             raise HTTPException(400, str(e).replace(tmp_path, display_name)) from e
+        except Exception as e:
+            # A library failure inside the loader (corrupt or password-
+            # protected PDF, a malformed DOCX) is a bad file, not a server
+            # crash -- see the fix plan, F2. This is deliberately broad: we
+            # don't enumerate every PDF/DOCX library's exception types here,
+            # since that knowledge belongs in load_paper_text, not this app.
+            log.error("Loader failed unexpectedly: %s", type(e).__name__)
+            raise HTTPException(
+                400,
+                "Could not read this file. It may be corrupted, "
+                "password-protected, or in an unsupported format.",
+            ) from e
     finally:
         os.unlink(tmp_path)
 
