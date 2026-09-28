@@ -52,8 +52,11 @@ Docs/Test/* is gitignored (NDA fixtures in any format), not present in CI.
 test_rvos_poc.py already skips cleanly (not crashes) when they're missing
 (see its second skipif). CI will therefore show those four reasoning tests
 SKIPPED, not PASSED — that's expected, not a bug. test_loading.py uses
-synthetic files generated in tmp_path, so its tests PASS in CI. CI
-verifies the code imports, lints cleanly, and loads PDF/DOCX/txt
-correctly; it does not verify reasoning correctness. No ANTHROPIC_API_KEY
-secret is set: the reasoning tests would skip without the NDA fixtures
-anyway, and a public repo has no use for an idle credential.
+synthetic files generated in tmp_path, so its tests PASS in CI, and
+test_app.py fakes the graph, so it PASSES too. CI verifies the code
+imports, lints cleanly, loads PDF/DOCX/txt correctly, and that the web
+routes behave; it does not verify reasoning correctness. No
+ANTHROPIC_API_KEY secret is set: the workflow still passes
+`secrets.ANTHROPIC_API_KEY`, which therefore arrives empty, and the
+reasoning tests would skip without the NDA fixtures anyway. A public repo
+has no use for an idle credential.
