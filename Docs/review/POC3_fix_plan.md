@@ -18,13 +18,18 @@ Each patch is still its own commit. A hand-over is one delivery to Claude Code C
 
 | Hand-over | Patches | Status |
 |---|---|---|
-| 1 | 1, 2 (path fix, CI pin) | DRAFTED, verified on a fresh clone of `8b2c730`, waiting for the owner to apply |
-| 2 | 3, 4, 5 (pins, web errors, offline tests) | NOT STARTED. Decision needed on dependency pins |
+| 1 | 1, 2 (path fix, CI pin) | DONE. CI run `36464370180` on commit `b53dd4f`: success. Both action versions confirmed to declare `node24`. |
+| 2 | 3, 4, 5 (pins, web errors, offline tests) | Part 1 (Patch 3) DONE. CI run `36494455239` on commit `addd53e`: success. Part 2 (Patches 4, 5) DRAFTED, gated on Part 1's confirmation. Owner decided: upper-bound pins (not a constraints file). |
 | 3 | 6, 7 (core: validation, loader) | NOT STARTED. Needs live test run |
 | 4 | 8 (temperature, length) | NOT STARTED. Confirm API accepts `temperature` first |
 | 5 | 9 (regenerate log, close register) | NOT STARTED |
 
 **Hand-over 1 facts (verified):** `actions/checkout` v6 and `actions/setup-python` v6 both declare `node24` in their `action.yml` (v4 and v5 declare `node20`). Newer majors (v7) also exist; v6 was chosen as the conservative step. The 2026-10-19 `ubuntu-latest` change and the Node 20 removal dates come from secondary sources (GitHub issues), not GitHub's own notice.
+
+**Hand-over 2 is split into two independent parts**, verified separately and together on a fresh clone of `b53dd4f`:
+- **Part 1 (Patch 3):** `requirements.txt` only. Upper bounds set one major above each package's actually-installed version at draft time (e.g. `reportlab>=4.0.0,<6.0.0` -- its floor was written for 4.x, but a clean install today already resolves to 5.0.1, which is exactly the drift F9 warned about). Verified alone: clean install, lint, 21 passed / 4 skipped.
+- **Part 2 (Patches 4, 5):** `app.py`, `test_app.py`, and the new `test_pipeline_offline.py`. Verified alone (does not need Part 1) and stacked on Part 1: lint clean, 32 passed / 4 skipped / 5 xfailed.
+- The two parts do not depend on each other and were confirmed to apply in either order.
 
 ## Decisions already taken
 
@@ -39,7 +44,7 @@ Each patch is still its own commit. A hand-over is one delivery to Claude Code C
 | 1 | F1 | `pytest_output.txt` | Replace the two local-path lines (2 and 4) with `<repo>`. Add a stamp: generated at commit `<sha>`, predates `test_app.py`, regenerated in Patch 9. | Searching the working tree for the old folder names finds nothing. | Push, check tick. |
 | 2 | F8, F10 | `.github/workflows/tests.yml`, `CLAUDE.md` | Pin `ubuntu-24.04` (before 19 Oct 2026). Check the action versions against the Node 20 deprecation warning (current versions verified at build time). Make the workflow and `CLAUDE.md` agree about the API-key secret. | Actions run is green. | Push, check tick, note any warnings still shown. |
 | 3 | F9 | `requirements.txt` (and possibly a constraints file) | Stop CI installing whatever is newest. **Decision at this step:** upper-bound pins, or a constraints file generated from a tested install. | Clean-venv install, `ruff`, offline `pytest`, CI green. | Choose the option. |
-| 4 | F2 (web) | `app.py`, `test_app.py` | Catch the specific library errors for corrupt or protected PDFs and bad DOCX files, and return a clear 400 instead of a generic 500. Add two tests. | New tests pass, existing 10 still pass. | Push, check tick. |
+| 4 | F2 (web) | `app.py`, `test_app.py` | Revised from the original plan: catching specific library exceptions (pdfminer, python-docx) would leak their internals into app.py, which shouldn't need to know what library load_paper_text uses. Instead, broaden the existing `except PaperLoadError` to also catch `Exception`, and return the same generic 400. Add one test. | New test passes, existing 10 still pass. | Push, check tick. |
 | 5 | F11 | new `test_pipeline_offline.py` | Mocked, no-API tests for `extract_claim` retry and validation, `search_openalex` 429 backoff, `_reconstruct_abstract` and `_response_text`. Tests for behaviour not yet fixed (F2 CLI, F3, F4, F5) are marked `xfail(strict=True)`, so they turn into failures the moment a fix lands unflagged. `test_rvos_poc.py` is not touched. | Offline run shows passes plus expected xfails. | Push, check tick. |
 
 ## Batch B - core files (each needs your live test run)

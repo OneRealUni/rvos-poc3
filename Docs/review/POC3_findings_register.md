@@ -26,13 +26,13 @@ Core file = touches `rvos_poc.py` or `test_rvos_poc.py`. Those are changed last,
 
 | ID | Severity | Finding | Evidence | Core file? | Suggested fix |
 |---|---|---|---|---|---|
-| F1 | High | `pytest_output.txt` in a **public** repo contains the author's full local Windows folder path (lines 2 and 4). It is also stale: it lists 15 tests and predates `test_app.py` (25 tests now). | Search of the working tree: only this file. History: only commit `f1f8f0a`. | No | Replace the two path lines with `<repo>` placeholders, add a "Generated at commit" stamp, regenerate from a full local run. See decision Q1 about git history. |
+| F1 | High | **CLOSED (`b1c8ff5`).** `pytest_output.txt` in a **public** repo contains the author's full local Windows folder path (lines 2 and 4). It is also stale: it lists 15 tests and predates `test_app.py` (25 tests now). | Search of the working tree: only this file. History: only commit `f1f8f0a`. | No | Replace the two path lines with `<repo>` placeholders, add a "Generated at commit" stamp, regenerate from a full local run. See decision Q1 about git history. |
 
 ### P2 - Wrong or misleading output, confusing errors
 
 | ID | Severity | Finding | Evidence | Core file? | Suggested fix |
 |---|---|---|---|---|---|
-| F2 | Medium | A corrupt or password-protected PDF raises `PdfminerException`, not `PaperLoadError`. The web route returns a bare 500 ("Something went wrong. Please try again") even though retrying cannot help. The CLI only catches `PaperLoadError`, so a traceback is likely (inferred, not run). | Probes W1, W2, P5, P6 | Web fix: no. CLI fix: yes | Web: catch the loader failure in `app.py` and return a clear 400. CLI: wrap the PDF loader so it raises `PaperLoadError`. |
+| F2 | Medium | **Web half: drafted in Hand-over 2 Part 2 (Patch 4), closes once pushed and confirmed.** CLI half still open, deferred to Batch B. A corrupt or password-protected PDF raises `PdfminerException`, not `PaperLoadError`. The web route returns a bare 500 ("Something went wrong. Please try again") even though retrying cannot help. The CLI only catches `PaperLoadError`, so a traceback is likely (inferred, not run). | Probes W1, W2, P5, P6 | Web fix: no. CLI fix: yes | Web (done): broadened `except PaperLoadError` to also catch `Exception` in `app.py`, returning the same generic 400 -- not per-library exception types, which would leak loader internals into the web layer. CLI (still open): wrap the PDF loader so it raises `PaperLoadError`. |
 | F3 | Medium | If the model returns valid JSON that is not an object (for example `[]`), `extract_claim` raises `AttributeError` on `.keys()`. The retry loop does not catch it, so there is no retry. | Probes P1, W3 | Yes | Treat a non-dict result like a bad sample and retry. |
 | F4 | Medium | `keywords` is checked for presence only. A string is accepted and reaches OpenAlex as `c i r c u l a r`. An empty list is also accepted. | Probes P2, P3 | Yes | Require a non-empty list of strings. |
 | F5 | Low-Medium | DOCX loading reads paragraphs only. Text inside tables is dropped, and a table-only file fails with a misleading "no extractable text" message. | Probe P4 | Yes | Read table cells too, or say tables are not read. |
@@ -43,9 +43,9 @@ Core file = touches `rvos_poc.py` or `test_rvos_poc.py`. Those are changed last,
 
 | ID | Severity | Finding | Evidence | Core file? | Suggested fix |
 |---|---|---|---|---|---|
-| F8 | Medium (dated) | Workflow uses `ubuntu-latest`, which moves to Ubuntu 26 on **19 October 2026** (from the RVOS All v0.1 thread; not verified against GitHub's notice). Node 20 deprecation warnings on the action versions were also noted there. | `.github/workflows/tests.yml` | No | Pin `ubuntu-24.04` before 19 October. Review the action versions. |
-| F9 | Low-Medium | `requirements.txt` has lower bounds only and there is no lock file, so every CI run installs the newest versions (today: `anthropic` 1.8.0, `langgraph` 1.2.12, `fastapi` 0.141.1). | Clean-install output | No | Add a constraints or lock file, or upper pins. |
-| F10 | Low | Workflow passes `secrets.ANTHROPIC_API_KEY`, but `CLAUDE.md` says no such secret is set. Harmless, but the two disagree. The client is created at import time, and in the SDK version tested it did not fail without a key (behaviour may differ across versions). | Workflow vs `CLAUDE.md`; test run with no key | No | Make docs and workflow agree. |
+| F8 | Medium (dated) | **CLOSED (`6894832`).** Confirmed by CI run `36464370180`, conclusion success, on the pinned runner. Workflow uses `ubuntu-latest`, which moves to Ubuntu 26 on **19 October 2026** (from the RVOS All v0.1 thread; not verified against GitHub's notice). Node 20 deprecation warnings on the action versions were also noted there. | `.github/workflows/tests.yml` | No | Pin `ubuntu-24.04` before 19 October. Review the action versions. |
+| F9 | Low-Medium | **CLOSED (`addd53e`, CI run `36494455239`: success).** `requirements.txt` had lower bounds only and no lock file, so every CI run installed the newest versions (at draft time: `anthropic` 1.8.0, `langgraph` 1.2.12, `fastapi` 0.141.1, and `reportlab` had already silently drifted from its 4.x floor to 5.0.1). Now upper-bound pinned. | Clean-install output | No | Add a constraints or lock file, or upper pins. |
+| F10 | Low | **CLOSED (`6894832`).** Workflow passes `secrets.ANTHROPIC_API_KEY`, but `CLAUDE.md` says no such secret is set. Harmless, but the two disagree. The client is created at import time, and in the SDK version tested it did not fail without a key (behaviour may differ across versions). | Workflow vs `CLAUDE.md`; test run with no key | No | Make docs and workflow agree. |
 
 ### P4 - Test gaps
 
