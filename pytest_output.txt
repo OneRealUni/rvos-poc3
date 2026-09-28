@@ -1,7 +1,11 @@
+# Generated at commit 6271232 (code as of that commit; predates test_app.py,
+# so 15 tests, not the 25 that exist now). Regenerate before trusting this
+# as current state -- see Docs/review/POC3_fix_plan.md, Patch 9.
+
 ============================= test session starts =============================
-platform win32 -- Python 3.11.14, pytest-9.1.1, pluggy-1.6.0 -- C:\Drive\Minpori\Learn\Outskill\Projects\Capstone\Dev\POC3\venv\Scripts\python.exe
+platform win32 -- Python 3.11.14, pytest-9.1.1, pluggy-1.6.0 -- <repo>\venv\Scripts\python.exe
 cachedir: .pytest_cache
-rootdir: C:\Drive\Minpori\Learn\Outskill\Projects\Capstone\Dev\POC3
+rootdir: <repo>
 plugins: anyio-4.15.1, langsmith-0.14.0
 collecting ... collected 15 items
 
