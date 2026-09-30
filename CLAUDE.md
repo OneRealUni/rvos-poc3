@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - State assumptions explicitly; if uncertain, ask rather than guess.
 - Minimum code that solves the problem — nothing speculative, no unrequested flexibility.
 - Touch only what the task requires; match existing style; don't "improve" unrelated code.
+- If you discover a defect or improvement beyond the current task's explicit
+  scope while executing it -- even a clear one, even a security fix -- STOP,
+  report what you found and how you'd fix it, and wait for instruction before
+  implementing or committing it. Finish or roll back the in-scope work first;
+  don't fold the new fix into the same commit either, even once approved --
+  unless completing the in-scope work would itself re-trigger the newly-found
+  issue (e.g. re-running a test that would leak a secret again), in which
+  case report both and ask which to fix first.
 - Turn every task into a verifiable goal (write a test, then make it pass) rather than "make it work."
 - patches/ is gitignored: local patch files are scratch copies of changes already applied. There is no "commit review-evidence patches" routine in this repo -- CI now provides that evidence.
 
