@@ -20,9 +20,11 @@ Each patch is still its own commit. A hand-over is one delivery to Claude Code C
 |---|---|---|
 | 1 | 1, 2 (path fix, CI pin) | DONE. CI run `36464370180` on commit `b53dd4f`: success. Both action versions confirmed to declare `node24`. |
 | 2 | 3, 4, 5 (pins, web errors, offline tests) | Part 1 (Patch 3) DONE. CI run `36494455239` on commit `addd53e`: success. Part 2 (Patches 4, 5) DRAFTED, gated on Part 1's confirmation. Owner decided: upper-bound pins (not a constraints file). |
-| 3 | 6, 7 (core: validation, loader) | NOT STARTED. Needs live test run |
-| 4 | 8 (temperature, length) | NOT STARTED. Confirm API accepts `temperature` first |
+| 3 | 6, 7 (core: validation, loader) | DRAFTED, verified on a fresh clone of `31680eb`. Sequenced loader first (Patch 7: F5, F2-CLI), reasoning second (Patch 8: F3, F4) -- lower risk before higher risk. Gated on tag `core-baseline-pre-handover3` being pushed first. Needs your live test run before/after to confirm reasoning is unchanged. |
+| 4 | 8 (temperature, length) | F6's decision is taken (`RVOS_TEMPERATURE` env var, default `0.2`, used by both `extract_claim` and `judge_novelty`) but the owner deferred this patch to the next increment, not this hand-over. F7 (verdict length) still undecided. |
 | 5 | 9 (regenerate log, close register) | NOT STARTED |
+
+**Freeze tag:** `core-baseline-pre-handover3`, on commit `31680eb` -- the last commit before Hand-over 3 touches `rvos_poc.py`'s reasoning functions. `test_rvos_poc.py` was byte-identical to `rvos-poc2`'s validated core at that point; `rvos_poc.py` differed only by the PDF/DOCX loader added for POC3 (74 lines), not by anything in `extract_claim`, `search_openalex`, `judge_novelty` or `build_graph`. Rollback: `git checkout core-baseline-pre-handover3 -- rvos_poc.py test_rvos_poc.py`.
 
 **Hand-over 1 facts (verified):** `actions/checkout` v6 and `actions/setup-python` v6 both declare `node24` in their `action.yml` (v4 and v5 declare `node20`). Newer majors (v7) also exist; v6 was chosen as the conservative step. The 2026-10-19 `ubuntu-latest` change and the Node 20 removal dates come from secondary sources (GitHub issues), not GitHub's own notice.
 
@@ -51,8 +53,8 @@ Each patch is still its own commit. A hand-over is one delivery to Claude Code C
 
 | # | Register items | Files touched | Change | Verify | Owner action |
 |---|---|---|---|---|---|
-| 6 | F3, F4 | `rvos_poc.py` | In `extract_claim`, treat a non-object result and a bad or empty `keywords` as a bad sample and retry. Nothing else changes. | The F3 and F4 xfails are removed and pass. Offline tests, then the 4 live tests. | Run live `pytest`, push, check tick. |
-| 7 | F2 (CLI), F5 | `rvos_poc.py` | Loader raises `PaperLoadError` for corrupt or protected PDFs. DOCX loading reads table cells too. Then check whether Patch 4 can be simplified. | The F2-CLI and F5 xfails are removed and pass. Offline tests, then live tests. | Run live `pytest`, push, check tick. |
+| 6 | F3, F4 | `rvos_poc.py` | In `extract_claim`, treat a non-object result and a bad or empty `keywords` as a bad sample and retry. Nothing else changes. **DRAFTED as Hand-over 3 Patch 8** (applied second, after the loader patch). | The F3 and F4 xfails are removed and pass -- confirmed offline (37 passed, 0 xfailed) and by re-running the original Stage 3 probes directly. Live tests still needed from you. | Run live `pytest`, push, check tick. |
+| 7 | F2 (CLI), F5 | `rvos_poc.py` | Loader raises `PaperLoadError` for corrupt or protected PDFs (same broad-catch design as Patch 4, for the same reason). DOCX loading reads table cells too. **DRAFTED as Hand-over 3 Patch 7** (applied first). Patch 4 in `app.py` is not simplified -- its `except PaperLoadError` branch now catches this case directly, giving a more specific message than its `except Exception` fallback did; both stay, one is now a safety net for the genuinely unexpected. | The F2-CLI and F5 xfails are removed and pass -- confirmed offline and via the original Stage 3 probes (a corrupt PDF now raises `PaperLoadError` through the real web route too, not just the CLI). | Run live `pytest`, push, check tick. |
 | 8 | F6, F7 | `rvos_poc.py` | Add a `temperature` to the Claude calls and tighten the verdict length wording. **Before drafting:** confirm the API accepts `temperature` for `claude-sonnet-5`. **Decisions at this step:** the value, and whether the length range is tightened or relaxed. This is the only patch that changes model behaviour, so it goes last and can be reverted alone. | Run the live tests 3 times and compare verdict wording on both fixtures before and after. | Live runs (costs a few pence each) and your reading of the verdicts. |
 
 ## Wrap-up
