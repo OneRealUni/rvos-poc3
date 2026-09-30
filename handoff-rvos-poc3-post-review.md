@@ -33,10 +33,11 @@ means yet. Do not assume; ask.
 
 Full technical state, commit history, and gotchas are in `HANDOVER.md`
 (rewritten 2026-09-30) -- read that, don't ask the user to re-explain it.
-Headline: repo `OneRealUni/rvos-poc3`, HEAD `1e1aaf7`, CI green, tags
-`poc3-stable`/`ui-demo`/`core-baseline-pre-handover3`. Working tree was
-clean except `HANDOVER.md` itself, freshly rewritten and possibly still
-uncommitted -- check `git status` before assuming either way.
+Headline: repo `OneRealUni/rvos-poc3`, HEAD `68c388f`, **3 commits ahead of
+`origin/main`, not yet pushed** (last pushed commit `1e1aaf7` has CI green,
+`46 passed, 4 skipped`), tags `poc3-stable`/`ui-demo`/`core-baseline-pre-handover3`.
+Working tree is clean -- but don't assume push state from that; check plain
+`git status` for the ahead-of-origin line.
 
 ## Read these instead of asking the user to re-explain
 
@@ -133,7 +134,9 @@ Not invocable by the agent (user must type them): `mattpocock-skills:grill-with-
 
 ## First moves
 
-1. `git status --short`, `git log --oneline -5`, `gh auth status`.
+1. `git status` (plain, not `--short` -- only the plain form shows an
+   "ahead of origin" line; as of this writing there are 3 unpushed commits),
+   `git log --oneline -5`, `gh auth status`.
 2. Read `CLAUDE.md`, `CONTEXT.md`, then `HANDOVER.md` in full.
 3. If `git status` shows `HANDOVER.md` modified, ask the user whether to
    commit it now before doing anything else.

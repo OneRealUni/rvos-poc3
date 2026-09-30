@@ -8,7 +8,11 @@ PDF/DOCX loading + CI; everything below happened since). Read `CLAUDE.md`
 ## Where things stand
 
 - Repo: https://github.com/OneRealUni/rvos-poc3 (public, branch `main`).
-  HEAD `1e1aaf7`, pushed, CI green (`46 passed, 4 skipped`).
+  HEAD `68c388f`, **3 commits ahead of `origin/main`, not yet pushed**
+  (`cf2d1f2` CLAUDE.md scope rule, `8e003bd` this file's rewrite, `68c388f`
+  the handoff doc below). Last pushed commit (`1e1aaf7`) has CI green
+  (`46 passed, 4 skipped`). Check `git status` (not `--short` -- only the
+  plain form shows the ahead-of-origin line) before assuming push state.
 - Tags: `poc3-stable` (`da8f996`, pre-UI), `ui-demo` (`8b2c730`, UI landed),
   `core-baseline-pre-handover3` (`31680eb`, last commit before any Hand-over
   touched `rvos_poc.py`'s reasoning code -- rollback/diff base for that work).
