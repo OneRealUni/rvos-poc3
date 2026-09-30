@@ -1,128 +1,206 @@
 # POC3 handover
 
-Written 2026-09-25 so a fresh session can continue without this conversation.
-Read `CLAUDE.md` (project rules) and `CONTEXT.md` (glossary) first.
+Written 2026-09-30, replacing the 2026-09-25 version (that one only covered
+PDF/DOCX loading + CI; everything below happened since). Read `CLAUDE.md`
+(project rules), `CONTEXT.md` (glossary), and `Docs/review/POC3_findings_register.md`
++ `POC3_fix_plan.md` (the code-review audit trail) before touching anything.
 
 ## Where things stand
 
-POC3 is **done and pushed**. Both increments in CLAUDE.md are complete:
+- Repo: https://github.com/OneRealUni/rvos-poc3 (public, branch `main`).
+  HEAD `1e1aaf7`, pushed, CI green (`46 passed, 4 skipped`).
+- Tags: `poc3-stable` (`da8f996`, pre-UI), `ui-demo` (`8b2c730`, UI landed),
+  `core-baseline-pre-handover3` (`31680eb`, last commit before any Hand-over
+  touched `rvos_poc.py`'s reasoning code -- rollback/diff base for that work).
+- Three things are now fully built and verified: **(1)** a demo web UI on top
+  of the unchanged reasoning core, **(2)** three "hand-over" rounds of an
+  external code review that found and fixed real defects, **(3)** same-day
+  discovery and fix of an OpenAlex reliability problem that blocked live
+  testing for most of a session.
+- `CLAUDE.md` still says "Current increment (UI)" -- that's stale now that
+  three rounds of review/hardening have happened on top of it. Update it
+  once the next real increment is chosen; I didn't touch it unprompted.
+- Working tree is clean.
 
-1. PDF/DOCX input: `load_paper_text()` in `rvos_poc.py`.
-2. GitHub Actions CI running lint + tests on every push.
+## The review workflow (important -- unusual, a fresh session needs this)
 
-- Repo: https://github.com/OneRealUni/rvos-poc3 (public, default branch `main`)
-- First CI run (id 36078144049) passed: `ruff check .` clean, **11 passed, 4 skipped**.
-  The 4 skips are the live reasoning tests; they skip in CI because the NDA
-  fixtures and API key are absent. That is expected (see CLAUDE.md), not a bug.
-- Local run (with `.env` key and fixtures): **15 passed** in about 65 s.
-  Output is saved in `pytest_output.txt` (committed).
-- The reasoning core (`extract_claim`, `search_openalex`, `judge_novelty`,
-  their prompts, the LangGraph wiring) is **unchanged** from POC2.
-- Working tree was clean after the push. This file and
-  `handoff-rvos-poc3-maintenance.md` were committed afterwards (2026-09-26).
+A **separate Claude session** (claude.ai/chat, no tool/network access) acts
+as code reviewer. It drafts findings and patches, the user (HITL) pastes
+them to me as `.docx` attachments, I verify independently, the user
+approves each step, I execute.
 
-## Commits (fresh history, no POC2 history carried over)
+- **The `.docx` files never carry the actual patch file contents** -- only
+  filenames/type-badges survive the chat-to-docx export. The user always
+  separately saves the real `.patch` files into `patches/` (gitignored) and
+  any new docs into `Docs/review/`. Always check both before assuming
+  something is missing.
+- **I independently re-verify the other session's claims, not just apply
+  them** -- it has no way to run code or hit a network. Examples this
+  session: confirmed `actions/checkout@v6`/`setup-python@v6` really declare
+  `node24` via `gh api`; confirmed a `Retry-After` header really exists on
+  OpenAlex's `503`s via direct `curl`, contradicting a "correction" the
+  other session proposed based on a third-party library's behaviour instead
+  of a direct observation.
+- **Every patch is dry-run (`git apply --check`) and usually fully applied
+  + tested in a throwaway `git clone --local` to scratch, before touching
+  the real working tree.**
+- **The user is a hard gate before every push**, and often before every
+  commit too. "Thumbs-up" / "push" / "run live tests" are the literal
+  trigger phrases -- don't infer permission from adjacent context.
+- **`Docs/review/*.md` is scanned for leak terms** (local path fragments,
+  the Windows username) before every commit that touches it.
 
-| Commit | What |
-|---|---|
-| `1970910` | Baseline: POC2 reasoning core + POC3 starting point (8 files) |
-| `43df0f1` | Add `CONTEXT.md`; blanket-ignore `Docs/Test/*` in `.gitignore` |
-| `6271232` | PDF/DOCX loading, `test_loading.py`, `reportlab` dev dependency, README/CLAUDE.md updates |
-| `f1f8f0a` | Add `pytest_output.txt` |
+## What was built, in order
 
-## What was built
+### UI increment (commits `81edb0a`..`8b2c730`)
+- `app.py`: FastAPI, one file, `GET /` + `POST /analyse`. Calls
+  `build_graph().invoke()` directly (not `run()`, which writes a file and
+  returns nothing). Upload -> temp file -> `load_paper_text()` -> deleted in
+  `finally`. `PaperLoadError` -> 400; upstream API errors -> 502; anything
+  else -> 500. Never logs paper text or filenames. 10 MB cap. `127.0.0.1` only.
+- `static/index.html`: plain HTML/CSS/JS, no framework. One button, disabled
+  while running, inline error area, related-work items without an abstract
+  greyed out with a note (the judge never saw them).
+- `test_app.py`: `TestClient` + a fake graph, no API key needed.
 
-In `rvos_poc.py`:
-- `load_paper_text(path)` picks a reader by extension, case-insensitive:
-  `.txt` (utf-8, cp1252 fallback, as before), `.pdf` (`pdfplumber`, page text
-  joined by newlines), `.docx` (`python-docx`, body paragraphs only).
-- `PaperLoadError(ValueError)` is raised for an unsupported extension (message
-  names `.txt`, `.pdf`, `.docx`) and for a file with no extractable text
-  (e.g. a scanned PDF; no OCR).
-- `run()` calls `load_paper_text()`. `__main__` catches only `PaperLoadError`,
-  prints `Error: ...` to stderr and exits 1. Other exceptions still traceback.
-- Usage string and module docstring mention `.txt|.pdf|.docx`.
+### Hand-over 1 (commits `b1c8ff5`, `6894832`)
+- Redacted a local path from `pytest_output.txt`.
+- Pinned CI to `ubuntu-24.04` + `actions/checkout@v6`/`setup-python@v6`
+  (Node 24, avoiding the 2026-10-19 `ubuntu-latest` -> Ubuntu 26 move and the
+  Node 20 deprecation warnings -- confirmed gone via `gh api` annotations).
 
-In `test_loading.py` (new, 11 tests, no API key or NDA files needed):
-synthetic DOCX (python-docx) and PDF (reportlab) built in `tmp_path`; covers
-docx, multi-page pdf, txt utf-8 and cp1252, upper-case extension, three
-unsupported names (`.rtf`, `.md`, no extension), blank PDF, whitespace-only
-DOCX, and the CLI error path (exit 1, no traceback).
+### Hand-over 2 (commits `addd53e`, `cd0a732`, `9ff2be1`, `b53dd4f`)
+- Upper-bound pins on every dependency (`reportlab` had already silently
+  drifted 4.x -> 5.0.1 -- exactly the risk this fixes).
+- `app.py`'s loader-failure handling broadened to `except Exception` -> 400
+  (was a bare 500 for a corrupt/protected PDF).
+- New `test_pipeline_offline.py`: mocked, no-API tests for `extract_claim`
+  validation, `search_openalex` retry, `_reconstruct_abstract`,
+  `_response_text` -- with `xfail(strict=True)` markers for the confirmed-
+  but-not-yet-fixed core defects (forces the marker to be removed in the
+  same change that fixes the bug, or the suite fails).
 
-## Decisions made (grill-with-docs session) and why
+### Hand-over 3 (commits `af24121`, `712c4e1`, `fc1789e` -- the first to touch `rvos_poc.py`)
+- `_load_pdf` wraps any pdfplumber/pdfminer failure as `PaperLoadError`
+  (same broad-catch design as the web fix, now in the loader itself).
+- `_load_docx` reads table cells, not just paragraphs.
+- `extract_claim` validates the model's response is a dict with a non-empty
+  list of string `keywords`, retrying like any other bad sample instead of
+  crashing with `AttributeError`.
+- All 5 `xfail` markers from Hand-over 2 removed (the bugs they guarded are
+  fixed) -- suite went from `32 passed/4 skipped/5 xfailed` to `37 passed/4 skipped`.
+- Tagged `core-baseline-pre-handover3` on `31680eb` *before* any of this,
+  specifically so `rvos_poc.py`/`test_rvos_poc.py` changes have a clean diff base.
 
-- Loader lives in `rvos_poc.py`, not a new module (minimum code; tests already import from it).
-- Unsupported extension is an error, with no text fallback. A silent fallback
-  would feed binary junk to the model and yield a confident but meaningless verdict.
-- No usable text is an error, not a warning. OCR is out of scope.
-- Plain extraction with no cleanup (no PDF header/footer stripping, no DOCX
-  tables). Only the first 12,000 characters reach the model anyway. If a real
-  paper extracts badly, make that its own increment with a failing test.
-- Loading tests are synthetic and separate, so CI has something that actually
-  PASSES. CLAUDE.md's "Known constraint" section was updated to say so.
-- Vocabulary (see `CONTEXT.md`): **load** = file to paper text; **extract** is
-  reserved for the model pulling out the claim. Other terms: Paper, Paper text,
-  Claim, Related work, Verdict, Report.
-- `Docs/Test/*` is blanket-ignored. The three NDA papers exist locally as
-  `.txt`, `.pdf` and `.docx` (`Bocken`, `Radha Tucci ISPIM25`, `Tucci`).
-  The old per-filename ignore list did not cover PDF/DOCX; the blanket rule does.
-- Fixture **file names** appear in tracked files (`test_rvos_poc.py`,
-  `README.md`). The user checked the NDA terms and confirmed this is fine to publish.
-- No `ANTHROPIC_API_KEY` repo secret. The reasoning tests would skip without
-  the NDA fixtures anyway, and the repo is public.
-- No ADRs written: nothing met all three criteria (hard to reverse, surprising, real trade-off).
-- The repo is `rvos-poc3` (the user first said `rvos-poc`, then corrected it).
+### Same-day OpenAlex incident + fix (commits `c2fcac6`, `1e1aaf7` -- F16, F17)
+This ran Step 6 of Hand-over 3 (the live reasoning tests) off the rails for
+most of a session. Full story, in order:
+1. Live tests failed 3 times with OpenAlex `503`/`504` -- the search
+   cluster load-shedding **anonymous** (`mailto`-only) traffic. Diagnosed by
+   direct `curl` probing outside the test suite: a short query with `mailto`
+   succeeded once; the real, longer generated queries consistently failed.
+   Not a Hand-over 3 regression -- `extract_claim` always completed first.
+2. Root cause: `mailto` alone gets a much smaller daily budget than
+   OpenAlex's documented free tier (`X-RateLimit-Limit-USD: 0.1` observed vs
+   the documented `$1/day`). Fix: get a free OpenAlex API key (user did, at
+   openalex.org -- costs nothing, takes minutes).
+3. **First version of the fix sent the key as an `api_key` query param.**
+   This leaked the real key into a live pytest traceback in this
+   conversation, because `requests`' own error message includes the full
+   request URL. Caught immediately; confirmed via `grep`/`git grep` that it
+   never touched any file or git-tracked location -- exposure was contained
+   to the chat transcript. **Corrected same session**: the key is now sent
+   as an `Authorization: Bearer` header (OpenAlex documents both methods;
+   only the header form can't leak this way). `OPENALEX_MAILTO` stays a
+   query param -- it was never secret.
+   **Open action for the user: rotate the exposed key at OpenAlex, out of
+   caution** (free-tier key, low real-world stakes, but correct practice
+   regardless of severity). Not confirmed done as of this writing.
+4. While fixing this, also discovered `search_openalex`'s retry loop only
+   covered `429` -- a `503`, `500` or `504` raised immediately with zero
+   retry, even though a real `503` response was observed carrying a genuine
+   `Retry-After: 60` header. Broadened retry to `429/500/503/504`, honoring
+   `Retry-After` when present (capped at 30s -- don't trust an arbitrarily
+   large value), falling back to fixed exponential backoff otherwise.
+   **First draft of this only covered `429/500/503`** (following a
+   third-party OpenAlex client library's precedent) and still failed live on
+   a `504` -- caught and corrected before commit, not after.
+5. Final live re-run after both fixes: **4 passed, clean, no leak.**
 
-## Things I did that were not explicitly agreed
+`PyAlex` (a real OpenAlex Python client) was referenced only as precedent
+for which status codes are worth retrying -- it is **not** a dependency of
+this project and there's no current reason to adopt it. Logged as `W5` in
+the findings register for when it would actually pay for itself (multi-page
+result walking, complex filters, citation-graph traversal).
 
-- The "no extractable text" check runs for **every** format, so an empty `.txt`
-  now errors too (it used to go to the model). One uniform check was simpler than a special case.
-- Added the `PaperLoadError` subclass so the CLI doesn't swallow unrelated `ValueError`s.
-- Fixed a ruff finding in my own test (`subprocess.run(..., check=False)`); CI would have failed on it.
+## Findings register state (`Docs/review/POC3_findings_register.md`)
 
-## Verified
-
-- Loader read all three real NDA files locally (Bocken.pdf ~121k chars, ISPIM pdf ~29k, Tucci.docx ~6k).
-- Live end-to-end CLI run on `Bocken.pdf`: verdict flagged near-verbatim
-  overlap with source [2], correct direction. The report file is clean UTF-8;
-  the mojibake seen in the PowerShell console was display only.
-- Clean-clone CI rehearsal (no `.env`, no `Docs/`, fresh venv, empty API key): 11 passed, 4 skipped.
-- Pre-push scan of all commits for key-like strings: none. Tracked files: exactly
-  the code and docs plus `.env.example`; nothing from `Docs/`, `.env`, `venv/`.
+`F1` through `F17` exist. **Closed:** F1, F2, F3, F4, F5, F8, F9, F10, F16,
+F17. **Open/deferred:** F6 (temperature -- decided as `RVOS_TEMPERATURE` env
+var, default `0.2`, deferred to next increment, not yet implemented), F7
+(verdict length), F12 (insufficient-evidence path, deliberately deferred),
+F14 (browser check of a UI copy artefact), F15 (citation-numbering logic
+duplicated between `run()` and `app.py`, no shared source of truth). `F11`
+(offline test coverage) closed via Hand-over 2's new test file. `F13`
+(live tests skip in CI) is by design, not a defect. `D1`/`D2` deferred to
+POC4/RAG. One still-pending doc cleanup, deferred to a Hand-over 5
+wrap-up: `Patch 10`-style correction of leftover stale text (this one:
+stale text was already fixed inline, nothing outstanding here now).
 
 ## Gotchas for the next session
 
-- **Shell:** this Windows box has no `tee`, `tail` or `grep` in Git Bash.
-  Use PowerShell or the dedicated tools. PowerShell 5.1's `Tee-Object` writes
-  UTF-16; write files with `[IO.File]::WriteAllLines(..., UTF8Encoding($false))`.
-  `pytest_output.txt` was produced this way. `Remove-Item` with a regex-looking
-  string in the command was blocked by the harness.
-- **Tokens:** `gh` is logged in as `OneRealUni`. Scopes are now
-  `gist, read:org, repo, workflow`. `workflow` was added on 2026-09-25 (via
-  `gh auth refresh -h github.com -s workflow`) because pushing
-  `.github/workflows/tests.yml` needs it. Revoke it if you no longer want it.
-- **`.env`** holds the real key locally (gitignored). `load_dotenv()` runs at
-  import, so local pytest runs the live tests even without the shell variable set.
-- **Live tests** call Anthropic and OpenAlex and cost a little per run; results vary slightly.
-- Git prints LF/CRLF warnings on this machine. Harmless.
-- `grill-with-docs` (Matt Pocock's plugin, v1.2.3) is installed and enabled, but has
-  `disable-model-invocation: true`. The user must type
-  `/mattpocock-skills:grill-with-docs`; I cannot invoke it myself.
+- **`.docx` attachments from the reviewer never carry embedded file
+  content** -- always check `patches/` and `Docs/review/` for the real
+  files before assuming a review round-trip is incomplete. Reading a
+  `.docx` needs `python-docx` directly (`pandoc` isn't installed here);
+  redirect stdout to a file with UTF-8 encoding first if the text has
+  non-ASCII characters (an em dash crashed a direct console print once via
+  `cp1252`).
+- **Any unscoped `pytest` (`pytest -v`, no filenames) runs the 4 live
+  reasoning tests too**, because this machine's `.env` has a real
+  `ANTHROPIC_API_KEY` and `Docs/Test/*` fixtures are present locally -- CI
+  has neither, so it always skips them, but local runs don't unless you
+  name files explicitly (`pytest -v test_loading.py test_app.py
+  test_pipeline_offline.py`). This caused real confusion and unintended
+  live-API spend more than once. Always ask "does this need to be scoped?"
+  before running bare `pytest` locally.
+- **The Bash/PowerShell tool occasionally returns a transient "auto mode
+  classifier gave no verdict" error** -- read-only operations still work via
+  Read/Grep/Glob in the meantime; retry the shell command once after.
+- **OpenAlex specifics**: `api.openalex.org` (not the marketing site) is
+  what to probe for real status. `mailto` alone is not enough for reliable
+  access under load -- get a free API key. Send it as an `Authorization:
+  Bearer` header, never a query param (leaks into error messages that print
+  the URL). Retry on `429/500/503/504`; honor `Retry-After` when present,
+  cap it.
+- **`gh run watch <id> --exit-status`** prints check-run annotations
+  directly (e.g. Node-20 deprecation warnings) -- no need to separately
+  query `gh api .../check-runs/.../annotations` unless you want a clean,
+  separately-quotable JSON block.
+- Git still prints LF/CRLF warnings on this machine. Harmless.
+- `mattpocock-skills:grill-with-docs` and `mattpocock-skills:handoff` are
+  both user-invocation-only (`disable-model-invocation: true`). The user
+  must type the `/` command; I cannot invoke either myself.
 
-## Open items and not-done (all explicitly out of scope for POC3)
+## Open items
 
-- The "insufficient evidence" verdict path is still untested (logged and deferred in CLAUDE.md).
-- UI / test website is a later, separate increment.
-- No OCR for scanned PDFs. No DOCX table extraction or PDF header/footer cleanup.
-- CI housekeeping, optional: GitHub warns that `actions/checkout@v4` and
-  `actions/setup-python@v5` target Node 20 (currently forced to Node 24), and
-  that `ubuntu-latest` moves to Ubuntu 26 on 2026-10-19 (pin `ubuntu-24.04` to avoid a surprise).
-- `CLAUDE.md` still describes POC3 as the "current increment". Update it when the next increment is chosen.
-- This file is committed to the public repo (the user's choice, 2026-09-26). It was
-  scanned first: no local paths, keys or email addresses.
-- The user half-remembers an on-screen "10 pound offer if I do /something" and will
-  report the exact wording if seen. I never said it (checked the transcript).
-  Treat it as unverified until it is confirmed against an official source.
+- **Rotate the exposed OpenAlex key** (F17) -- recommended, not confirmed done.
+- `CLAUDE.md`'s "Current increment (UI)" section is stale; update when the
+  next increment is chosen.
+- F6 (temperature) and F7 (verdict length) decisions are recorded but not
+  yet implemented -- deferred to the next increment on purpose.
+- F15 (citation-numbering duplication between `run()` and `app.py`) --
+  logged, no increment assigned.
+- Six "Anticipated problems" are recorded in `POC3_fix_plan.md` (written
+  2026-09-30, given the project is about to scale features rapidly, not
+  just traffic): secret sprawl across providers, the resilience-gap pattern
+  recurring with every new external integration, review-ceremony-vs-
+  velocity tension as feature count grows, D1/D2 (12k-char truncation,
+  retrieval relevance) getting worse not better with richer documents, zero
+  reasoning coverage in CI ever, and the findings register itself not
+  scaling past a certain size (already F1-F17 after three hand-overs on one
+  increment -- close it out at the planned Hand-over 5 wrap-up before the
+  next big push, not after).
 
 ## How to run
 
@@ -130,8 +208,10 @@ DOCX, and the CLI error path (exit 1, no traceback).
 python -m venv venv
 venv\Scripts\activate            # Windows
 pip install -r requirements.txt
-cp .env.example .env             # then put the real Anthropic key in .env
-python rvos_poc.py "Docs/Test/Bocken.pdf"    # or .docx / .txt
+cp .env.example .env             # Anthropic key, OPENALEX_MAILTO, OPENALEX_API_KEY
+python rvos_poc.py "Docs/Test/Bocken.pdf"    # CLI -- or .docx / .txt
+uvicorn app:app --host 127.0.0.1 --port 8000 # UI -- open the printed address
 ruff check .
-pytest -v
+pytest -v test_loading.py test_app.py test_pipeline_offline.py  # offline, no cost
+pytest -v test_rvos_poc.py                   # live, costs a little, needs .env + fixtures
 ```
