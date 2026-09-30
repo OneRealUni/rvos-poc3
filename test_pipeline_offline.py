@@ -5,14 +5,13 @@ Unlike test_rvos_poc.py, nothing here needs ANTHROPIC_API_KEY, a network
 connection, or the NDA paper fixtures, so these run on every push in CI --
 see the fix plan, Patch 5 (F11).
 
-Some tests below are marked xfail(strict=True): they encode a defect the
-findings register already confirmed (F2 loader, F3, F4, F5) but that hasn't
-been fixed yet -- that fix is scoped to Batch B, a later hand-over, because
-it touches rvos_poc.py. strict=True means the test SUITE FAILS the moment
-one of these starts passing unexpectedly, which is the point: it forces
-whoever fixes the underlying bug to also remove the xfail marker in the
-same change, rather than the fix landing silently with a stale marker left
-behind.
+Some tests below use xfail(strict=True): the pattern is, when a confirmed
+defect needs a regression test before it's fixed, mark that test xfail so
+strict=True fails the SUITE the moment it starts passing unexpectedly --
+forcing whoever fixes the bug to remove the marker in the same change,
+rather than the fix landing silently with a stale marker left behind.
+Hand-over 3 fixed every defect this file had marked that way (F2's loader
+half, F3, F4, F5), so none remain here for now.
 """
 
 import json
@@ -112,11 +111,6 @@ def test_extract_claim_gives_up_after_three_bad_samples(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3: a JSON array (or other non-object) crashes with AttributeError "
-    "instead of being retried like any other bad sample",
-)
 def test_extract_claim_retries_when_response_is_not_a_json_object(monkeypatch):
     calls = {"n": 0}
 
@@ -131,10 +125,6 @@ def test_extract_claim_retries_when_response_is_not_a_json_object(monkeypatch):
     assert result["keywords"] == ["a"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F4: extract_claim accepts a keywords value that isn't a list at all",
-)
 def test_extract_claim_rejects_keywords_that_are_not_a_list(monkeypatch):
     monkeypatch.setattr(
         rp.client.messages,
@@ -145,11 +135,6 @@ def test_extract_claim_rejects_keywords_that_are_not_a_list(monkeypatch):
         rp.extract_claim("paper text")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F4: extract_claim accepts an empty keywords list, which OpenAlex "
-    "then receives as an empty search query",
-)
 def test_extract_claim_rejects_an_empty_keywords_list(monkeypatch):
     monkeypatch.setattr(
         rp.client.messages,

@@ -45,7 +45,8 @@ def extract_claim(paper_text: str) -> dict:
     """Agent 1: pull out the core claim, method, and result.
 
     Occasionally returns a malformed JSON string (e.g. an invalid escape
-    like \\' inside a value) -- retry a couple of times rather than fail
+    like \\' inside a value), a JSON value that isn't an object, or one
+    missing/malformed keywords -- retry a couple of times rather than fail
     the whole pipeline on a single bad sample."""
     prompt = f"""Read this research paper text and extract, in your own words:
 1. The core claim (one or two sentences)
@@ -74,9 +75,20 @@ PAPER TEXT:
         except json.JSONDecodeError as e:
             last_error = e
             continue
+        if not isinstance(parsed, dict):
+            last_error = ValueError(f"Model response was valid JSON but not an object: {parsed!r}")
+            continue
         missing = REQUIRED_KEYS - parsed.keys()
         if missing:
             last_error = ValueError(f"Model response missing required keys: {sorted(missing)}")
+            continue
+        keywords = parsed.get("keywords")
+        if not isinstance(keywords, list) or not keywords or not all(
+            isinstance(k, str) for k in keywords
+        ):
+            last_error = ValueError(
+                f"Model response's keywords must be a non-empty list of strings, got: {keywords!r}"
+            )
             continue
         return parsed
     raise last_error
