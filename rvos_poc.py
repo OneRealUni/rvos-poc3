@@ -203,12 +203,31 @@ def _load_txt(path: str) -> str:
 
 
 def _load_pdf(path: str) -> str:
-    with pdfplumber.open(path) as pdf:
-        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    try:
+        with pdfplumber.open(path) as pdf:
+            return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    except Exception as e:
+        # Deliberately broad: pdfplumber/pdfminer raise their own internal
+        # exception types for a corrupt or password-protected PDF, and
+        # enumerating those here would be as fragile as the leak this fixes
+        # in app.py (see the fix plan, F2). Any failure at this point means
+        # the PDF couldn't be read, which is exactly what PaperLoadError is
+        # for.
+        raise PaperLoadError(
+            f"{path} could not be read as a PDF (it may be corrupted or "
+            f"password-protected): {e}"
+        ) from e
 
 
 def _load_docx(path: str) -> str:
-    return "\n".join(p.text for p in Document(path).paragraphs)
+    doc = Document(path)
+    parts = [p.text for p in doc.paragraphs]
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if cell.text.strip():
+                    parts.append(cell.text)
+    return "\n".join(parts)
 
 
 _LOADERS = {".txt": _load_txt, ".pdf": _load_pdf, ".docx": _load_docx}

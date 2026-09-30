@@ -229,12 +229,6 @@ def test_search_openalex_does_not_retry_a_non_429_error(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F2 (loader): a corrupt PDF raises pdfminer's own exception, "
-    "not PaperLoadError -- app.py now papers over this (Patch 4), but the "
-    "CLI does not",
-)
 def test_load_paper_text_wraps_a_corrupt_pdf_as_paper_load_error(tmp_path):
     bad = tmp_path / "bad.pdf"
     bad.write_bytes(b"not a pdf")
@@ -242,10 +236,6 @@ def test_load_paper_text_wraps_a_corrupt_pdf_as_paper_load_error(tmp_path):
         rp.load_paper_text(str(bad))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F5: load_paper_text only reads DOCX paragraphs, not table cells",
-)
 def test_load_paper_text_reads_docx_table_cells():
     import tempfile
     from pathlib import Path
