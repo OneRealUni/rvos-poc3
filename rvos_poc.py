@@ -114,11 +114,27 @@ def search_openalex(keywords: list, limit: int = 8) -> list:
     mailto = os.environ.get("OPENALEX_MAILTO")
     if mailto:
         params["mailto"] = mailto
+    api_key = os.environ.get("OPENALEX_API_KEY")
+    # Sent as an Authorization header, not a query param: a query param ends up
+    # in requests' own error message ("... for url: ..."), which leaked the key
+    # into a live test's traceback (see the findings register, F17 correction).
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
+    # 429/500/503/504 are treated as transient (F16/F17): OpenAlex's own heavy-
+    # load 503s were observed with a Retry-After header; 500 is retried the same
+    # way by PyAlex, an established OpenAlex client; 504 (Cloudflare timing out
+    # waiting on OpenAlex's own backend) was directly observed too. Retry-After
+    # is honored when present (capped at 30s -- it sent 60 once; don't trust an
+    # arbitrarily large value), otherwise fixed exponential backoff as before.
     for attempt in range(3):
-        r = requests.get(url, params=params, timeout=20)
-        if r.status_code == 429 and attempt < 2:
-            time.sleep(2 ** attempt)
+        r = requests.get(url, params=params, headers=headers, timeout=20)
+        if r.status_code in (429, 500, 503, 504) and attempt < 2:
+            retry_after = r.headers.get("Retry-After")
+            try:
+                wait = min(float(retry_after), 30) if retry_after is not None else 2 ** attempt
+            except ValueError:
+                wait = 2 ** attempt  # Retry-After can legally be an HTTP-date; we don't parse that form
+            time.sleep(wait)
             continue
         r.raise_for_status()
         break

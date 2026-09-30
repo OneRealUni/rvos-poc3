@@ -151,9 +151,10 @@ def test_extract_claim_rejects_an_empty_keywords_list(monkeypatch):
 
 
 class _FakeHTTPResponse:
-    def __init__(self, status_code, payload=None):
+    def __init__(self, status_code, payload=None, headers=None):
         self.status_code = status_code
         self._payload = payload or {}
+        self.headers = headers or {}
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -166,7 +167,7 @@ class _FakeHTTPResponse:
 def test_search_openalex_retries_on_429_then_succeeds(monkeypatch):
     calls = {"n": 0}
 
-    def fake_get(url, params, timeout):
+    def fake_get(url, params, timeout, headers=None):
         calls["n"] += 1
         if calls["n"] < 3:
             return _FakeHTTPResponse(429)
@@ -196,17 +197,166 @@ def test_search_openalex_raises_after_persistent_429(monkeypatch):
         rp.search_openalex(["x"])
 
 
-def test_search_openalex_does_not_retry_a_non_429_error(monkeypatch):
+def test_search_openalex_sends_api_key_as_authorization_header_when_set(monkeypatch):
+    """OPENALEX_API_KEY, when set, must be sent as an Authorization: Bearer
+    header, NOT a query param -- a query param ends up in request.raise_for_
+    status()'s error message (`for url: ...`), which leaked the real key into
+    a live test's traceback (see the findings register, F17 correction)."""
+    monkeypatch.setenv("OPENALEX_API_KEY", "test-key-123")
+    seen = {}
+
+    def fake_get(url, params, timeout, headers=None):
+        seen["params"] = params
+        seen["headers"] = headers
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    rp.search_openalex(["x"])
+    assert seen["headers"].get("Authorization") == "Bearer test-key-123"
+    assert "api_key" not in seen["params"]  # never in params -- see docstring
+
+
+def test_search_openalex_omits_authorization_header_when_no_key(monkeypatch):
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    seen = {}
+
+    def fake_get(url, params, timeout, headers=None):
+        seen["headers"] = headers
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    rp.search_openalex(["x"])
+    assert "Authorization" not in seen["headers"]
+
+
+def test_search_openalex_does_not_retry_a_genuinely_unretryable_error(monkeypatch):
+    """404/401-class errors are not transient -- retrying cannot help.
+    (500 moved to the retryable set below, per F16/F17: OpenAlex's own
+    heavy-load 503s were observed alongside a Retry-After header, and
+    PyAlex -- an established OpenAlex client -- treats 500 as transient too.)"""
     calls = {"n": 0}
 
     def fake_get(*a, **k):
         calls["n"] += 1
-        return _FakeHTTPResponse(500)
+        return _FakeHTTPResponse(404)
 
     monkeypatch.setattr(rp.requests, "get", fake_get)
     with pytest.raises(requests.HTTPError):
         rp.search_openalex(["x"])
     assert calls["n"] == 1
+
+
+def test_search_openalex_retries_on_503_then_succeeds(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_get(url, params, timeout, headers=None):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return _FakeHTTPResponse(503)
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: None)
+    rp.search_openalex(["x"])
+    assert calls["n"] == 3
+
+
+def test_search_openalex_retries_on_504_then_succeeds(monkeypatch):
+    """504 Gateway Timeout was directly observed from OpenAlex under load
+    (see the findings register, F16) -- Cloudflare timing out waiting on
+    OpenAlex's own backend, a step worse than a deliberate 503 rejection."""
+    calls = {"n": 0}
+
+    def fake_get(url, params, timeout, headers=None):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            return _FakeHTTPResponse(504)
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: None)
+    rp.search_openalex(["x"])
+    assert calls["n"] == 2
+
+
+def test_search_openalex_retries_on_500_then_succeeds(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_get(url, params, timeout, headers=None):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            return _FakeHTTPResponse(500)
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: None)
+    rp.search_openalex(["x"])
+    assert calls["n"] == 2
+
+
+def test_search_openalex_honors_retry_after_header_when_present(monkeypatch):
+    """Directly observed on a real OpenAlex 503 (see the findings register,
+    F16): 'Retry-After: 60', also listed in access-control-expose-headers --
+    a real, deliberate part of their response, not just inferred from a
+    third-party client's behaviour."""
+    slept = []
+
+    def fake_get(url, params, timeout, headers=None):
+        return _FakeHTTPResponse(503, headers={"Retry-After": "5"}) if not slept \
+            else _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: slept.append(seconds))
+    rp.search_openalex(["x"])
+    assert slept == [5.0]
+
+
+def test_search_openalex_falls_back_to_backoff_without_retry_after(monkeypatch):
+    calls = {"n": 0}
+    slept = []
+
+    def fake_get(url, params, timeout, headers=None):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            return _FakeHTTPResponse(503)  # no Retry-After header
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: slept.append(seconds))
+    rp.search_openalex(["x"])
+    assert slept == [1.0]  # 2 ** 0, the existing exponential pattern
+
+
+def test_search_openalex_caps_retry_after_at_30_seconds(monkeypatch):
+    slept = []
+
+    def fake_get(url, params, timeout, headers=None):
+        return _FakeHTTPResponse(503, headers={"Retry-After": "3600"}) if not slept \
+            else _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: slept.append(seconds))
+    rp.search_openalex(["x"])
+    assert slept == [30.0]
+
+
+def test_search_openalex_ignores_unparseable_retry_after(monkeypatch):
+    """Retry-After can legally be an HTTP-date per spec; we only support the
+    delay-seconds form. An unparseable value falls back to backoff rather
+    than crashing."""
+    calls = {"n": 0}
+    slept = []
+
+    def fake_get(url, params, timeout, headers=None):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            return _FakeHTTPResponse(503, headers={"Retry-After": "Wed, 30 Sep 2026 17:00:00 GMT"})
+        return _FakeHTTPResponse(200, {"results": []})
+
+    monkeypatch.setattr(rp.requests, "get", fake_get)
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: slept.append(seconds))
+    rp.search_openalex(["x"])
+    assert slept == [1.0]
 
 
 # ---------------------------------------------------------------------------
