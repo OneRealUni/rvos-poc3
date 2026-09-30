@@ -20,7 +20,7 @@ Each patch is still its own commit. A hand-over is one delivery to Claude Code C
 |---|---|---|
 | 1 | 1, 2 (path fix, CI pin) | DONE. CI run `36464370180` on commit `b53dd4f`: success. Both action versions confirmed to declare `node24`. |
 | 2 | 3, 4, 5 (pins, web errors, offline tests) | Part 1 (Patch 3) DONE. CI run `36494455239` on commit `addd53e`: success. Part 2 (Patches 4, 5) DRAFTED, gated on Part 1's confirmation. Owner decided: upper-bound pins (not a constraints file). |
-| 3 | 6, 7 (core: validation, loader) | DRAFTED, verified on a fresh clone of `31680eb`. Sequenced loader first (Patch 7: F5, F2-CLI), reasoning second (Patch 8: F3, F4) -- lower risk before higher risk. Gated on tag `core-baseline-pre-handover3` being pushed first. Needs your live test run before/after to confirm reasoning is unchanged. |
+| 3 | 6, 7 (core: validation, loader) | **DONE, Steps 0-6 all complete.** Steps 0-5 pushed and confirmed green (tag `core-baseline-pre-handover3`, commits `af24121`, `712c4e1`, `fc1789e`). Step 6 blocked three times on 2026-09-30 by OpenAlex `503`/`504` (external load-shedding of anonymous access, not a regression -- see the findings register's "External blockers" section, kept in full). Root cause found and fixed same day (F17): a free OpenAlex API key, added to `search_openalex`. Step 6 re-run: **4 passed.** Live confirmation for F3/F4 is DONE. |
 | 4 | 8 (temperature, length) | F6's decision is taken (`RVOS_TEMPERATURE` env var, default `0.2`, used by both `extract_claim` and `judge_novelty`) but the owner deferred this patch to the next increment, not this hand-over. F7 (verdict length) still undecided. |
 | 5 | 9 (regenerate log, close register) | NOT STARTED |
 
